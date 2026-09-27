@@ -1,0 +1,12 @@
+{
+  "name": "browser-moonscript",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Proof of concept: compile and run MoonScript entirely in the browser, with no server",
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs",
+    "check": "node --check moonscript.js && node --check server.mjs"
+  },
+  "license": "MIT"
+}

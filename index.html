@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MoonScript in the browser — PoC</title>
+    <style>
+      :root {
+        --bg: #0f1115;
+        --panel: #171a21;
+        --panel-2: #1e222b;
+        --border: #2a2f3a;
+        --text: #d7dce5;
+        --muted: #8b93a3;
+        --accent: #9b6dff;
+        --accent-2: #6ea8fe;
+        --err: #ff6b6b;
+        --warn: #f0b429;
+        --ok: #4ade80;
+        --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+      }
+      body {
+        display: flex;
+        flex-direction: column;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 10px 16px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+        flex: none;
+      }
+      header h1 {
+        font-size: 15px;
+        margin: 0;
+        font-weight: 600;
+      }
+      .tag {
+        font: 11px/1 var(--mono);
+        color: var(--muted);
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 4px 8px;
+        white-space: nowrap;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 16px;
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+        flex: none;
+        flex-wrap: wrap;
+      }
+      button,
+      select {
+        font: inherit;
+        color: var(--text);
+        background: var(--panel-2);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 12px;
+        cursor: pointer;
+      }
+      button:hover,
+      select:hover {
+        border-color: #3a4152;
+      }
+      button.primary {
+        background: linear-gradient(180deg, var(--accent), #7c4dff);
+        border-color: #7c4dff;
+        color: #fff;
+        font-weight: 600;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      kbd {
+        font: 11px var(--mono);
+        background: #0b0d11;
+        border: 1px solid var(--border);
+        border-bottom-width: 2px;
+        border-radius: 4px;
+        padding: 1px 5px;
+        color: var(--muted);
+      }
+      .hint {
+        color: var(--muted);
+      }
+      main {
+        flex: 1;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        min-height: 0;
+      }
+      .pane {
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+        min-height: 0;
+      }
+      .pane + .pane {
+        border-left: 1px solid var(--border);
+      }
+      .label {
+        flex: none;
+        padding: 6px 14px;
+        font: 11px var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+        background: var(--panel);
+        border-bottom: 1px solid var(--border);
+      }
+      textarea {
+        flex: 1;
+        width: 100%;
+        resize: none;
+        border: 0;
+        outline: none;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.6 var(--mono);
+        padding: 14px;
+        tab-size: 2;
+        white-space: pre;
+        overflow: auto;
+      }
+      #output {
+        flex: 1;
+        margin: 0;
+        padding: 14px;
+        overflow: auto;
+        font: 13px/1.6 var(--mono);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      #output .err {
+        color: var(--err);
+      }
+      #output .warn {
+        color: var(--warn);
+      }
+      #output .muted {
+        color: var(--muted);
+      }
+      /* the <div id="dom-target"> the DOM interop example writes into */
+      #dom-target {
+        flex: none;
+        margin: 0 14px 10px;
+        padding: 8px 12px;
+        border: 1px dashed var(--border);
+        border-radius: 6px;
+        font: 12px/1.5 var(--mono);
+        color: var(--muted);
+      }
+      details {
+        flex: none;
+        border-top: 1px solid var(--border);
+        background: var(--panel);
+        max-height: 40%;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+      }
+      details[hidden] {
+        display: none;
+      }
+      summary {
+        cursor: pointer;
+        padding: 6px 14px;
+        font: 11px var(--mono);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      #compiled {
+        margin: 0;
+        padding: 0 14px 12px;
+        overflow: auto;
+        font: 12px/1.6 var(--mono);
+        white-space: pre;
+        color: var(--accent-2);
+      }
+      #status {
+        flex: none;
+        padding: 6px 14px;
+        font: 11px var(--mono);
+        color: var(--muted);
+        background: var(--panel);
+        border-top: 1px solid var(--border);
+      }
+      #status.ok {
+        color: var(--ok);
+      }
+      #status.err {
+        color: var(--err);
+      }
+      @media (max-width: 760px) {
+        main {
+          grid-template-columns: 1fr;
+          grid-template-rows: 1fr 1fr;
+        }
+        .pane + .pane {
+          border-left: 0;
+          border-top: 1px solid var(--border);
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>MoonScript in the browser</h1>
+      <span class="tag">proof of concept</span>
+      <span class="spacer"></span>
+      <span class="tag" id="versions">MoonScript &rarr; Lua &middot; no server</span>
+    </header>
+
+    <div class="toolbar">
+      <button id="run" class="primary">&#9654; Run</button>
+      <button id="clear">Clear output</button>
+      <select id="examples" title="Load an example">
+        <option value="">Load example…</option>
+      </select>
+      <span class="spacer"></span>
+      <span class="hint"><kbd>Ctrl</kbd>/<kbd>Cmd</kbd> + <kbd>Enter</kbd> to run</span>
+    </div>
+
+    <main>
+      <section class="pane">
+        <div class="label">MoonScript</div>
+        <textarea id="editor" spellcheck="false" autocomplete="off" autocapitalize="off"></textarea>
+      </section>
+      <section class="pane">
+        <div class="label">Output</div>
+        <pre id="output"></pre>
+        <div id="dom-target">DOM target — untouched</div>
+        <details id="compiled-wrap" hidden>
+          <summary>Compiled Lua</summary>
+          <pre id="compiled"></pre>
+        </details>
+        <div id="status">Ready.</div>
+      </section>
+    </main>
+
+    <!--
+      Fengari is Lua 5.3 written in JavaScript. It is the same runtime LiveCodes
+      uses to run Lua (and the Fennel and Teal compilers). The MoonScript
+      compiler is a WebAssembly build loaded lazily by moonscript.js, because
+      the real MoonScript parser needs LPeg.
+    -->
+    <script src="https://cdn.jsdelivr.net/npm/fengari-web@0.1.4/dist/fengari-web.js"></script>
+    <script type="module">
+      import * as moon from './moonscript.js';
+
+      const editor = document.getElementById('editor');
+      const output = document.getElementById('output');
+      const compiled = document.getElementById('compiled');
+      const compiledWrap = document.getElementById('compiled-wrap');
+      const statusEl = document.getElementById('status');
+      const examplesEl = document.getElementById('examples');
+      const runButton = document.getElementById('run');
+      const versionsEl = document.getElementById('versions');
+      const domTarget = document.getElementById('dom-target');
+
+      const state = document.documentElement.dataset;
+      let runs = 0;
+
+      function write(text, cls) {
+        const span = document.createElement('span');
+        if (cls) span.className = cls;
+        span.textContent = text;
+        output.appendChild(span);
+        output.scrollTop = output.scrollHeight;
+      }
+
+      function clearOutput() {
+        output.textContent = '';
+      }
+
+      function setStatus(message, kind) {
+        statusEl.textContent = message;
+        statusEl.className = kind || '';
+        state.status = message;
+      }
+
+      async function run() {
+        clearOutput();
+        setStatus('Running…');
+        state.status = 'running';
+        runButton.disabled = true;
+
+        const started = performance.now();
+        let result;
+        try {
+          result = await moon.run(editor.value, { onPrint: (line) => write(line + '\n') });
+        } catch (err) {
+          runButton.disabled = false;
+          write((err && err.message ? err.message : String(err)) + '\n', 'err');
+          setStatus('Failed to load the compiler', 'err');
+          return;
+        }
+
+        // Anything the compiler itself printed (warnings, mostly).
+        for (const line of result.log || []) {
+          write(line + '\n', 'warn');
+        }
+
+        if (result.error) {
+          write(result.error.message.replace(/\n?$/, '\n'), 'err');
+        }
+
+        if (result.lua) {
+          compiled.textContent = result.lua;
+          compiledWrap.hidden = false;
+        } else {
+          compiled.textContent = '';
+          compiledWrap.hidden = true;
+        }
+
+        runs += 1;
+        const elapsed = Math.round(performance.now() - started);
+        state.runs = String(runs);
+        state.runMs = String(elapsed);
+        runButton.disabled = false;
+
+        if (result.error) {
+          setStatus(
+            result.error.kind === 'compile' ? 'Compile error' : 'Runtime error',
+            'err',
+          );
+        } else {
+          setStatus('Done in ' + elapsed + ' ms.', 'ok');
+        }
+      }
+
+      document.getElementById('run').addEventListener('click', run);
+
+      document.getElementById('clear').addEventListener('click', () => {
+        clearOutput();
+        compiled.textContent = '';
+        compiledWrap.hidden = true;
+        domTarget.innerHTML = 'DOM target — untouched';
+        setStatus('Ready.');
+      });
+
+      editor.addEventListener('keydown', (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+          event.preventDefault();
+          run();
+        }
+        if (event.key === 'Tab') {
+          event.preventDefault();
+          const start = editor.selectionStart;
+          const end = editor.selectionEnd;
+          editor.value = editor.value.slice(0, start) + '  ' + editor.value.slice(end);
+          editor.selectionStart = editor.selectionEnd = start + 2;
+        }
+      });
+
+      for (const example of moon.examples) {
+        const option = document.createElement('option');
+        option.value = example.name;
+        option.textContent = example.name;
+        examplesEl.appendChild(option);
+      }
+
+      examplesEl.addEventListener('change', () => {
+        const chosen = moon.examples.find((example) => example.name === examplesEl.value);
+        if (!chosen) return;
+        editor.value = chosen.code;
+        examplesEl.value = '';
+        run();
+      });
+
+      editor.value = moon.examples[0].code;
+
+      window.addEventListener('load', async () => {
+        try {
+          const { moonscript, lua, lpeg } = await moon.versions();
+          // Compiling and running use two different Lua versions, which is a
+          // real property of this approach and worth showing rather than hiding.
+          const runtime = (window.fengari?.lua?.LUA_RELEASE) || 'Lua 5.3';
+          versionsEl.textContent = 'MoonScript ' + moonscript + ' · Fengari (' + runtime + ')';
+          versionsEl.title =
+            'Compiled by a WebAssembly build of ' +
+            lua +
+            ' + ' +
+            lpeg +
+            ', then run on Fengari (' +
+            runtime +
+            ').';
+        } catch (err) {
+          // Offline, or the CDN is unreachable. Run will report it properly.
+          console.error(err);
+        }
+        run();
+      });
+
+      // Element ids and run state are exposed for scripted checks, so a check
+      // never has to match on rendered text.
+      Object.assign(window, { moon, __run: run, __editor: editor, __output: output });
+    </script>
+  </body>
+</html>
